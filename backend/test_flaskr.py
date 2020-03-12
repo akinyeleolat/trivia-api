@@ -31,6 +31,10 @@ class TriviaTestCase(unittest.TestCase):
                 'id': 1,
             }
         }
+
+        self.new_category = {
+            'type': 'Biosciences',
+        }
         # binds the app to the current context
         with self.app.app_context():
             self.db = SQLAlchemy()
@@ -113,6 +117,32 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 404)
         self.assertEqual(data['success'], False)
         self.assertEqual(data['error'], 404)
+        self.assertTrue(data['message'])
+
+    def test_create_new_category(self):
+        res = self.client().post('/api/categories', json=self.new_category)
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(data['success'], True)
+        self.assertTrue(data['created'])
+
+    def test_create_new_category_duplicate(self):
+        res = self.client().post('/api/categories', json=self.new_category)
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(data['success'], False)
+        self.assertTrue(data['error'], 409)
+        self.assertTrue(data['message'])
+
+    def test_create_new_category_incorrect(self):
+        res = self.client().post('/api/categories', json={'question': 'Test'})
+        data = json.loads(res.data)
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(data['success'], False)
+        self.assertEqual(data['error'], 400)
         self.assertTrue(data['message'])
 
     def test_get_category_questions(self):
