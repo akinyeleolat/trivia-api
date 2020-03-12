@@ -50,17 +50,61 @@ def create_app(test_config=None):
   for all available categories.
   '''
 
-    @app.route('/api/categories')
+    @app.route('/api/categories', methods=['GET', 'POST'])
     @cross_origin()
-    def get_all_categories():
+    def handle_categories():
         try:
-            selection = Category.query.order_by('id').all()
-            result = [item.format for item in selection]
-            return jsonify({
-                'success': True,
-                'categories': result,
-                'total_categories': len(Category.query.all())
-            })
+            if request.method == 'GET':
+                try:
+                    selection = Category.query.order_by('id').all()
+                    result = [item.format for item in selection]
+                    if not result:
+                        abort(400)
+                    return jsonify({
+                        'success': True,
+                        'categories': result,
+                        'total_categories': len(Category.query.all())
+                    })
+                except():
+                    abort(500)
+
+            if request.method == 'POST':
+                error = False
+
+                data = request.get_json()
+
+                new_category = Category(
+                    type=data.get('type', None),
+                )
+
+                if not new_category.type:
+                    abort(400)
+
+                # check if existed
+                duplicate_category = Category.query.filter(Category.type == new_category.type).all()
+
+                if bool(duplicate_category):
+                    abort(409)
+
+                try:
+                    db.session.add(new_category)
+                    db.session.commit()
+                except():
+                    error = True
+                    print(sys.exc_info())
+                    abort(400)
+
+                selection = Category.query.order_by('id').all()
+                result = [item.format for item in selection]
+
+                return jsonify({
+                    'success': True,
+                    'created': new_category.id,
+                    'category created': new_category.type,
+                    'categories': result,
+                    'total_categories': len(Category.query.all())
+                }), 201
+
         except():
             abort(500)
 
@@ -206,7 +250,6 @@ def create_app(test_config=None):
         return jsonify({
             'success': True,
             'created': new_question.id,
-            # 'question added': new_question_list,
             'questions': paged_questions,
             'total_questions': len(selection)
         }), 201
@@ -389,6 +432,22 @@ def create_app(test_config=None):
             "error": 500,
             "message": "internal server error"
         }), 500
+
+    @app.errorhandler(405)
+    def server_error(error):
+        return jsonify({
+            "success": False,
+            "error": 450,
+            "message": "no such method"
+        }), 405
+
+    @app.errorhandler(409)
+    def server_error(error):
+        return jsonify({
+            "success": False,
+            "error": 409,
+            "message": "resource existed"
+        }), 409
 
     return app
 
